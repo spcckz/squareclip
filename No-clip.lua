@@ -8,8 +8,8 @@ config = {
         openKey = 22, -- [[X/Square]]
         goUp = 24, -- [[Right Trigger]]
         goDown = 25, -- [[Left Trigger]]
-        turnLeft = 37, -- [[LB/L1]]
-        turnRight = 44, -- [[RB/R1]]
+        turnLeft = 5, -- [[Right Stick Left]]
+        turnRight = 6, -- [[Right Stick Right]]
         goForward = 32,  -- [[Left Stick Forward]]
         goBackward = 33, -- [[Left Stick Back]]
         changeSpeed = 28, -- [[L3]]
@@ -17,14 +17,14 @@ config = {
 
     speeds = {
         -- [[If you wish to change the speeds or labels there are associated with then here is the place.]]
-        { label = "Very Slow", speed = 0},
-        { label = "Slow", speed = 0.5},
-        { label = "Normal", speed = 2},
-        { label = "Fast", speed = 4},
-        { label = "Very Fast", speed = 6},
-        { label = "Extremely Fast", speed = 10},
-        { label = "Extremely Fast v2.0", speed = 20},
-        { label = "Max Speed", speed = 25}
+        { label = "Very Slow", speed = 0 },
+        { label = "Slow", speed = 0.5 },
+        { label = "Normal", speed = 2 },
+        { label = "Fast", speed = 4 },
+        { label = "Very Fast", speed = 6 },
+        { label = "Extremely Fast", speed = 10 },
+        { label = "Extremely Fast v2.0", speed = 20 },
+        { label = "Max Speed", speed = 25 }
     },
 
     offsets = {
@@ -50,9 +50,23 @@ noclipActive = false -- [[Wouldn't touch this.]]
 index = 1 -- [[Used to determine the index of the speeds table.]]
 noclipToggleStart = 0 -- [[Timer for hold-to-toggle logic.]]
 
+-- Custom scaling function for trigger input
+local function scaleTriggerInput(input)
+    if input <= 0.5 then
+        -- Scale input from 0% to 50% trigger press: 0% to 25% speed
+        return input * 0.5
+    else
+        -- Scale input from 50% to 100% trigger press: 25% to 100% speed
+        return 0.25 + (input - 0.5) * 1.5
+    end
+end
+
 Citizen.CreateThread(function()
     buttons = setupScaleform("instructional_buttons")
     currentSpeed = config.speeds[index].speed
+
+    -- Define constant "Slow" speed for up/down movement
+    local slowSpeed = 0.5
 
     while true do
         Citizen.Wait(1)
@@ -99,12 +113,18 @@ Citizen.CreateThread(function()
 
             DisableControls()
 
+            -- Calculate upward/downward speed using fixed "Slow" speed
+            local upInput = GetControlNormal(0, config.controls.goUp) -- Right Trigger
+            local downInput = GetControlNormal(0, config.controls.goDown) -- Left Trigger
+            zoff = (scaleTriggerInput(upInput) - scaleTriggerInput(downInput)) * (slowSpeed + 0.3)
+
+            -- Forward and backward movement
             if IsDisabledControlPressed(0, config.controls.goForward) then
-                yoff = config.offsets.y
+                yoff = config.offsets.y * (currentSpeed + 0.3)
             end
 
             if IsDisabledControlPressed(0, config.controls.goBackward) then
-                yoff = -config.offsets.y
+                yoff = -config.offsets.y * (currentSpeed + 0.3)
             end
 
             if IsDisabledControlPressed(0, config.controls.turnLeft) then
@@ -115,15 +135,12 @@ Citizen.CreateThread(function()
                 SetEntityHeading(noclipEntity, GetEntityHeading(noclipEntity) - config.offsets.h)
             end
 
-            if IsDisabledControlPressed(0, config.controls.goUp) then
-                zoff = config.offsets.z
-            end
+            -- Lock camera to entity orientation
+            local entityHeading = GetEntityHeading(noclipEntity)
+            SetGameplayCamRelativeHeading(0) -- Align to entity heading
+            SetGameplayCamRelativePitch(0, 1.0) -- Align to entity pitch
 
-            if IsDisabledControlPressed(0, config.controls.goDown) then
-                zoff = -config.offsets.z
-            end
-
-            local newPos = GetOffsetFromEntityInWorldCoords(noclipEntity, 0.0, yoff * (currentSpeed + 0.3), zoff * (currentSpeed + 0.3))
+            local newPos = GetOffsetFromEntityInWorldCoords(noclipEntity, 0.0, yoff, zoff)
             local heading = GetEntityHeading(noclipEntity)
             SetEntityVelocity(noclipEntity, 0.0, 0.0, 0.0)
             SetEntityRotation(noclipEntity, 0.0, 0.0, 0.0, 0, false)
