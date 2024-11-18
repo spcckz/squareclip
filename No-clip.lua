@@ -8,8 +8,8 @@ config = {
         openKey = 22, -- [[X/Square]]
         goUp = 24, -- [[Right Trigger]]
         goDown = 25, -- [[Left Trigger]]
-        turnLeft = 34, -- [[Left Stick Left]]
-        turnRight = 35, -- [[Left Stick Right]]
+        turnLeft = 37, -- [[LB/L1]]
+        turnRight = 44, -- [[RB/R1]]
         goForward = 32,  -- [[Left Stick Forward]]
         goBackward = 33, -- [[Left Stick Back]]
         changeSpeed = 28, -- [[L3]]
@@ -33,6 +33,8 @@ config = {
         h = 3, -- [[How much you rotate. ]]
     },
 
+    holdTime = 1000, -- [[Time in milliseconds to hold the button to toggle no-clip]]
+
     -- [[Background colour of the buttons. (It may be the standard black on first opening, just re-opening.)]]
     bgR = 0, -- [[Red]]
     bgG = 0, -- [[Green]]
@@ -45,31 +47,37 @@ config = {
 --==--==--==--
 
 noclipActive = false -- [[Wouldn't touch this.]]
-
 index = 1 -- [[Used to determine the index of the speeds table.]]
+noclipToggleStart = 0 -- [[Timer for hold-to-toggle logic.]]
 
 Citizen.CreateThread(function()
-
     buttons = setupScaleform("instructional_buttons")
-
     currentSpeed = config.speeds[index].speed
 
     while true do
         Citizen.Wait(1)
 
-        if IsControlJustPressed(1, config.controls.openKey) then
-            noclipActive = not noclipActive
+        -- Check for hold-to-toggle logic
+        if IsControlPressed(1, config.controls.openKey) then
+            if noclipToggleStart == 0 then
+                noclipToggleStart = GetGameTimer()
+            elseif GetGameTimer() - noclipToggleStart >= config.holdTime then
+                noclipActive = not noclipActive
+                noclipToggleStart = 0 -- Reset the timer
 
-            if IsPedInAnyVehicle(PlayerPedId(), false) then
-                noclipEntity = GetVehiclePedIsIn(PlayerPedId(), false)
-            else
-                noclipEntity = PlayerPedId()
+                if IsPedInAnyVehicle(PlayerPedId(), false) then
+                    noclipEntity = GetVehiclePedIsIn(PlayerPedId(), false)
+                else
+                    noclipEntity = PlayerPedId()
+                end
+
+                SetEntityCollision(noclipEntity, not noclipActive, not noclipActive)
+                FreezeEntityPosition(noclipEntity, noclipActive)
+                SetEntityInvincible(noclipEntity, noclipActive)
+                SetVehicleRadioEnabled(noclipEntity, not noclipActive) -- [[Stop radio from appearing when going upwards.]]
             end
-
-            SetEntityCollision(noclipEntity, not noclipActive, not noclipActive)
-            FreezeEntityPosition(noclipEntity, noclipActive)
-            SetEntityInvincible(noclipEntity, noclipActive)
-            SetVehicleRadioEnabled(noclipEntity, not noclipActive) -- [[Stop radio from appearing when going upwards.]]
+        else
+            noclipToggleStart = 0 -- Reset the timer if button is released early
         end
 
         if noclipActive then
@@ -80,7 +88,7 @@ Citizen.CreateThread(function()
 
             if IsControlJustPressed(1, config.controls.changeSpeed) then
                 if index ~= 8 then
-                    index = index+1
+                    index = index + 1
                     currentSpeed = config.speeds[index].speed
                 else
                     currentSpeed = config.speeds[1].speed
@@ -88,33 +96,33 @@ Citizen.CreateThread(function()
                 end
                 setupScaleform("instructional_buttons")
             end
-				
-				DisableControls()
 
-			if IsDisabledControlPressed(0, config.controls.goForward) then
+            DisableControls()
+
+            if IsDisabledControlPressed(0, config.controls.goForward) then
                 yoff = config.offsets.y
-			end
-			
+            end
+
             if IsDisabledControlPressed(0, config.controls.goBackward) then
                 yoff = -config.offsets.y
-			end
-			
+            end
+
             if IsDisabledControlPressed(0, config.controls.turnLeft) then
-                SetEntityHeading(noclipEntity, GetEntityHeading(noclipEntity)+config.offsets.h)
-			end
-			
+                SetEntityHeading(noclipEntity, GetEntityHeading(noclipEntity) + config.offsets.h)
+            end
+
             if IsDisabledControlPressed(0, config.controls.turnRight) then
-                SetEntityHeading(noclipEntity, GetEntityHeading(noclipEntity)-config.offsets.h)
-			end
-			
+                SetEntityHeading(noclipEntity, GetEntityHeading(noclipEntity) - config.offsets.h)
+            end
+
             if IsDisabledControlPressed(0, config.controls.goUp) then
                 zoff = config.offsets.z
-			end
-			
+            end
+
             if IsDisabledControlPressed(0, config.controls.goDown) then
                 zoff = -config.offsets.z
-			end
-			
+            end
+
             local newPos = GetOffsetFromEntityInWorldCoords(noclipEntity, 0.0, yoff * (currentSpeed + 0.3), zoff * (currentSpeed + 0.3))
             local heading = GetEntityHeading(noclipEntity)
             SetEntityVelocity(noclipEntity, 0.0, 0.0, 0.0)
