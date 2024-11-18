@@ -5,14 +5,14 @@
 config = {
     controls = {
         -- [[Controls, list can be found here : https://docs.fivem.net/game-references/controls/]]
-        openKey = 288, -- [[F2]]
-        goUp = 85, -- [[Q]]
-        goDown = 48, -- [[Z]]
-        turnLeft = 34, -- [[A]]
-        turnRight = 35, -- [[D]]
-        goForward = 32,  -- [[W]]
-        goBackward = 33, -- [[S]]
-        changeSpeed = 21, -- [[L-Shift]]
+        openKey = 22, -- [[X/Square]]
+        goUp = 24, -- [[Right Trigger]]
+        goDown = 25, -- [[Left Trigger]]
+        turnLeft = 34, -- [[Left Stick Left]]
+        turnRight = 35, -- [[Left Stick Right]]
+        goForward = 32,  -- [[Left Stick Forward]]
+        goBackward = 33, -- [[Left Stick Back]]
+        changeSpeed = 28, -- [[L3]]
     },
 
     speeds = {
