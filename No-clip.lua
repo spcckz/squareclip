@@ -5,7 +5,6 @@
 config = {
     controls = {
         -- [[Controls, list can be found here : https://docs.fivem.net/game-references/controls/]]
-        openKey = 22, -- [[X/Square]]
         goUp = 24, -- [[Right Trigger]]
         goDown = 25, -- [[Left Trigger]]
         turnLeft = 5, -- [[Right Stick Left]]
@@ -16,7 +15,6 @@ config = {
     },
 
     speeds = {
-        -- [[If you wish to change the speeds or labels there are associated with then here is the place.]]
         { label = "Very Slow", speed = 0 },
         { label = "Slow", speed = 0.5 },
         { label = "Normal", speed = 2 },
@@ -30,49 +28,43 @@ config = {
     offsets = {
         y = 0.5, -- [[How much distance you move forward and backward while the respective button is pressed]]
         z = 0.2, -- [[How much distance you move upward and downward while the respective button is pressed]]
-        h = 3, -- [[How much you rotate. ]]
+        h = 3, -- [[How much you rotate. ]],
     },
 
     holdTime = 1000, -- [[Time in milliseconds to hold the button to toggle no-clip]]
-
-    -- [[Background colour of the buttons. (It may be the standard black on first opening, just re-opening.)]]
-    bgR = 0, -- [[Red]]
-    bgG = 0, -- [[Green]]
-    bgB = 0, -- [[Blue]]
-    bgA = 80, -- [[Alpha]]
 }
 
 --==--==--==--
 -- End Of Config
 --==--==--==--
 
-noclipActive = false -- [[Wouldn't touch this.]]
-index = 1 -- [[Used to determine the index of the speeds table.]]
-noclipToggleStart = 0 -- [[Timer for hold-to-toggle logic.]]
+noclipActive = false
+index = 1
+noclipToggleStart = 0
 
--- Custom scaling function for trigger input
 local function scaleTriggerInput(input)
     if input <= 0.5 then
-        -- Scale input from 0% to 50% trigger press: 0% to 25% speed
         return input * 0.5
     else
-        -- Scale input from 50% to 100% trigger press: 25% to 100% speed
         return 0.25 + (input - 0.5) * 1.5
     end
+end
+
+local function setAlpha(alpha)
+    local ped = PlayerPedId()
+    SetEntityAlpha(ped, alpha, false)
 end
 
 Citizen.CreateThread(function()
     buttons = setupScaleform("instructional_buttons")
     currentSpeed = config.speeds[index].speed
-
-    -- Define constant "Slow" speed for up/down movement
     local slowSpeed = 0.5
 
     while true do
         Citizen.Wait(1)
 
-        -- Check for hold-to-toggle logic
-        if IsControlPressed(1, config.controls.openKey) then
+        -- Check for simultaneous hold-to-toggle logic
+        if IsControlPressed(1, 21) and IsControlPressed(1, 22) then
             if noclipToggleStart == 0 then
                 noclipToggleStart = GetGameTimer()
             elseif GetGameTimer() - noclipToggleStart >= config.holdTime then
@@ -88,10 +80,20 @@ Citizen.CreateThread(function()
                 SetEntityCollision(noclipEntity, not noclipActive, not noclipActive)
                 FreezeEntityPosition(noclipEntity, noclipActive)
                 SetEntityInvincible(noclipEntity, noclipActive)
-                SetVehicleRadioEnabled(noclipEntity, not noclipActive) -- [[Stop radio from appearing when going upwards.]]
+                SetVehicleRadioEnabled(noclipEntity, not noclipActive)
+
+                -- Change player alpha based on noclip status
+                if noclipActive then
+                    setAlpha(125) -- Set alpha transparency when noclip is active
+                else
+                    setAlpha(255) -- Reset to default when noclip is disabled
+                    
+                    -- Simulate pressing button 87 (Throttle) for 500 milliseconds when noclip is disabled
+                    TriggerEvent("simulateThrottleBlip", 500)
+                end
             end
         else
-            noclipToggleStart = 0 -- Reset the timer if button is released early
+            noclipToggleStart = 0 -- Reset the timer if buttons are released early
         end
 
         if noclipActive then
@@ -113,12 +115,10 @@ Citizen.CreateThread(function()
 
             DisableControls()
 
-            -- Calculate upward/downward speed using fixed "Slow" speed
-            local upInput = GetControlNormal(0, config.controls.goUp) -- Right Trigger
-            local downInput = GetControlNormal(0, config.controls.goDown) -- Left Trigger
+            local upInput = GetControlNormal(0, config.controls.goUp)
+            local downInput = GetControlNormal(0, config.controls.goDown)
             zoff = (scaleTriggerInput(upInput) - scaleTriggerInput(downInput)) * (slowSpeed + 0.3)
 
-            -- Forward and backward movement
             if IsDisabledControlPressed(0, config.controls.goForward) then
                 yoff = config.offsets.y * (currentSpeed + 0.3)
             end
@@ -135,10 +135,9 @@ Citizen.CreateThread(function()
                 SetEntityHeading(noclipEntity, GetEntityHeading(noclipEntity) - config.offsets.h)
             end
 
-            -- Lock camera to entity orientation
             local entityHeading = GetEntityHeading(noclipEntity)
-            SetGameplayCamRelativeHeading(0) -- Align to entity heading
-            SetGameplayCamRelativePitch(0, 1.0) -- Align to entity pitch
+            SetGameplayCamRelativeHeading(0)
+            SetGameplayCamRelativePitch(0, 1.0)
 
             local newPos = GetOffsetFromEntityInWorldCoords(noclipEntity, 0.0, yoff, zoff)
             local heading = GetEntityHeading(noclipEntity)
@@ -146,10 +145,34 @@ Citizen.CreateThread(function()
             SetEntityRotation(noclipEntity, 0.0, 0.0, 0.0, 0, false)
             SetEntityHeading(noclipEntity, heading)
             SetEntityCoordsNoOffset(noclipEntity, newPos.x, newPos.y, newPos.z, noclipActive, noclipActive, noclipActive)
+
+            -- Display text when noclip is enabled
+            SetTextScale(0.5, 0.5)  -- Text size halved
+            SetTextColour(255, 255, 255, 255)  -- White text
+            SetTextOutline()  -- Add black outline
+            SetTextCentre(true)
+            BeginTextCommandDisplayText("STRING")
+            AddTextComponentSubstringPlayerName("NOCLIP ENABLED")
+            EndTextCommandDisplayText(0.5, 0.5)
         end
     end
 end)
 
---==--==--==--
--- End Of Script
---==--==--==--
+-- Simulate a throttle blip for a given duration by directly modifying vehicle throttle
+RegisterNetEvent("simulateThrottleBlip")
+AddEventHandler("simulateThrottleBlip", function(duration)
+    local playerPed = PlayerPedId()
+    if IsPedInAnyVehicle(playerPed, false) then
+        local vehicle = GetVehiclePedIsIn(playerPed, false)
+
+        -- Get the current throttle input of the vehicle and simulate pressing throttle
+        local throttle = 1.0 -- Maximum throttle input
+        local startTime = GetGameTimer()
+
+        while GetGameTimer() - startTime < duration do
+            -- Apply throttle force to simulate a blip
+            ApplyForceToEntity(vehicle, 1, 0.0, 0.0, throttle, false, false, false, false, false, false)
+            Citizen.Wait(0)
+        end
+    end
+end)
